@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Product, CostItem, ViewMode, AppSettings, MaterialPrices, MaterialType } from './types';
 import { saveProducts, loadProducts, fileToBase64, saveSettings, loadSettings, loadMaterialPrices, saveMaterialPrices } from './services/storageService';
-import { initCloud, fetchCloudProducts, saveCloudProduct, deleteCloudProduct, subscribeToProducts, fetchCloudMaterialPrices, saveCloudMaterialPrices } from './services/cloudService';
+import { initCloud, fetchCloudProducts, saveCloudProduct, deleteCloudProduct, subscribeToProducts, fetchCloudMaterialPrices, saveCloudMaterialPrices, subscribeToMaterialPrices } from './services/cloudService';
 import { analyzeProductCosts } from './services/geminiService';
 import CostChart from './components/CostChart';
 import { v4 as uuidv4 } from 'uuid';
@@ -566,29 +566,43 @@ const SettingsModal = ({
 }: { 
     isOpen: boolean; onClose: () => void; settings: AppSettings; onSaveSettings: (s: AppSettings) => void;
 }) => {
-    const [url, setUrl] = useState(settings.supabaseUrl);
-    const [key, setKey] = useState(settings.supabaseKey);
+    const [url, setUrl] = useState(settings.supabaseUrl || '');
+    const [key, setKey] = useState(settings.supabaseKey || '');
 
     if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="glass-panel w-full max-w-md p-6 rounded-2xl shadow-2xl">
-                <h2 className="text-lg font-bold text-white mb-4">系统设置 (云同步)</h2>
+            <div className="glass-panel w-full max-w-lg p-6 rounded-2xl shadow-2xl">
+                <h2 className="text-lg font-bold text-white mb-4">系统设置 (Supabase Cloud)</h2>
                 <div className="space-y-4">
-                    <p className="text-xs text-slate-400">配置 Supabase 以启用多设备实时同步功能。</p>
-                    <div>
-                        <label className="text-xs text-slate-500 uppercase">Project URL</label>
-                        <input value={url} onChange={e => setUrl(e.target.value)} className="glass-input w-full px-3 py-2 rounded-lg mt-1" />
+                    <div className="bg-cyan-900/30 p-3 rounded-lg border border-cyan-700/50 text-xs text-cyan-200 mb-2">
+                        <strong>操作指引：</strong> <br/>
+                        1. 注册/登录 <a href="https://supabase.com" target="_blank" className="underline text-white">Supabase.com</a>。<br/>
+                        2. 创建项目，在 Settings -> API 获取 Project URL 和 anon/public Key。<br/>
+                        3. 在 Supabase SQL Editor 中运行系统提供的建表代码。
                     </div>
                     <div>
-                        <label className="text-xs text-slate-500 uppercase">API Key (Public)</label>
-                        <input value={key} onChange={e => setKey(e.target.value)} className="glass-input w-full px-3 py-2 rounded-lg mt-1" type="password" />
+                        <label className="block text-xs font-medium text-slate-400 mb-1">Project URL</label>
+                        <input type="text" value={url} onChange={e => setUrl(e.target.value)} className="glass-input w-full px-3 py-2 rounded-lg" placeholder="https://xyz.supabase.co" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">API Key (anon/public)</label>
+                        <input type="password" value={key} onChange={e => setKey(e.target.value)} className="glass-input w-full px-3 py-2 rounded-lg" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." />
                     </div>
                     <div className="flex gap-2 pt-2">
                         <button onClick={() => {
-                            onSaveSettings({ supabaseUrl: url, supabaseKey: key, isCloudEnabled: !!(url && key) });
-                            onClose();
+                            if (!url || !key) {
+                                alert("请输入 URL 和 Key");
+                                return;
+                            }
+                            const success = initCloud(url, key);
+                            if (success) {
+                                onSaveSettings({ supabaseUrl: url, supabaseKey: key, isCloudEnabled: true });
+                                onClose();
+                            } else {
+                                alert("连接初始化失败，请检查 URL 和 Key 格式");
+                            }
                         }} className="flex-1 bg-cyan-600 text-white py-2 rounded-lg hover:bg-cyan-500">保存连接</button>
                         <button onClick={onClose} className="flex-1 bg-slate-700 text-slate-300 py-2 rounded-lg hover:bg-slate-600">关闭</button>
                     </div>
@@ -656,38 +670,50 @@ export default function App() {
   const [showPrices, setShowPrices] = useState(false);
   const [isCloudActive, setIsCloudActive] = useState(false);
 
+  // Auto refresh on focus
+  useEffect(() => {
+    const onFocus = () => {
+        if(isCloudActive) {
+            // Firestore handles listeners automatically, but we can trigger a check if needed.
+            // With snapshot listeners, this is usually redundant but harmless.
+            console.log("App focused, realtime sync is active.");
+        }
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [isCloudActive]);
+
   // Init
   useEffect(() => {
     // 1. Load Local
     setProducts(loadProducts());
 
-    // 2. Try Cloud
-    if (settings.isCloudEnabled) {
-      const client = initCloud(settings.supabaseUrl, settings.supabaseKey);
-      if (client) {
+    // 2. Try Cloud (Supabase)
+    if (settings.isCloudEnabled && settings.supabaseUrl && settings.supabaseKey) {
+      const success = initCloud(settings.supabaseUrl, settings.supabaseKey);
+      if (success) {
         setIsCloudActive(true);
-        fetchCloudProducts().then(data => {
-            if(data) {
-                setProducts(data);
-                saveProducts(data); // Cache locally
-            }
+        
+        // Subscribe to Products (Realtime)
+        const unsubProducts = subscribeToProducts((cloudProducts) => {
+            // Merge logic or replace? For simplicity, we replace but maybe we should warn?
+            // Since it's a realtime sync tool, we assume cloud is truth.
+            setProducts(cloudProducts);
+            saveProducts(cloudProducts); // Cache
         });
-        fetchCloudMaterialPrices().then(prices => {
-            if(prices) {
-                setMaterialPrices(prices);
-                saveMaterialPrices(prices);
-            }
+
+        // Subscribe to Settings (Realtime)
+        const unsubSettings = subscribeToMaterialPrices((cloudPrices) => {
+             setMaterialPrices(cloudPrices);
+             saveMaterialPrices(cloudPrices);
         });
-        // Realtime Subscription
-        const subscription = subscribeToProducts(() => {
-             fetchCloudProducts().then(data => {
-                 if(data) {
-                     setProducts(data);
-                     saveProducts(data);
-                 }
-             });
-        });
-        return () => { subscription?.unsubscribe(); };
+
+        return () => { 
+            unsubProducts();
+            unsubSettings();
+        };
+      } else {
+          setIsCloudActive(false);
       }
     } else {
         setIsCloudActive(false);
@@ -729,7 +755,7 @@ export default function App() {
   const handleSaveSettings = (newSettings: AppSettings) => {
       setSettings(newSettings);
       saveSettings(newSettings);
-      window.location.reload(); // Simple reload to re-init
+      window.location.reload(); 
   };
 
   const handleSavePrices = async (prices: MaterialPrices) => {
@@ -788,7 +814,7 @@ export default function App() {
             <div className="flex flex-col">
                 <span className="font-bold text-xl tracking-wider text-white">DAOYEE</span>
                 <span className="text-[10px] uppercase tracking-widest text-cyan-500 font-medium">
-                    {isCloudActive ? '• Cloud Synced' : '• Local Mode'}
+                    {isCloudActive ? '• Cloud Synced (Supabase)' : '• Local Mode'}
                 </span>
             </div>
           </div>
