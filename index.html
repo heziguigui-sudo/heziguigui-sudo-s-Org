@@ -1,0 +1,157 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="https://via.placeholder.com/192.png?text=DAOYEE">
+    <title>DAOYEE - 智能成本核算</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              slate: {
+                850: '#151f32',
+                900: '#0f172a',
+                950: '#020617',
+              }
+            },
+            fontFamily: {
+              mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', "Liberation Mono", "Courier New", "monospace"],
+            }
+          }
+        }
+      }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Noto Sans SC', sans-serif;
+        background-color: #0f172a;
+        color: #e2e8f0;
+        background-image: 
+          radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.15) 0px, transparent 50%),
+          radial-gradient(at 100% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%);
+        background-attachment: fixed;
+        min-height: 100vh;
+        -webkit-tap-highlight-color: transparent;
+      }
+      
+      /* Tech Grid Background */
+      .bg-grid {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        background-size: 50px 50px;
+        background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                          linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        pointer-events: none;
+      }
+
+      .font-mono-num {
+        font-family: 'JetBrains Mono', 'Menlo', monospace;
+      }
+
+      /* Scrollbar */
+      ::-webkit-scrollbar {
+        width: 4px;
+        height: 4px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #1e293b; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #475569; 
+        border-radius: 4px;
+      }
+      
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      
+      /* Glassmorphism Utilities */
+      .glass-panel {
+        background: rgba(30, 41, 59, 0.7);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      
+      .glass-input {
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        color: white;
+      }
+      .glass-input:focus {
+        border-color: #38bdf8;
+        background: rgba(15, 23, 42, 0.8);
+      }
+
+      /* Mobile Optimizations */
+      input, select, textarea {
+        font-size: 16px !important; /* Prevent iOS zoom */
+      }
+      
+      /* Print Styles for Quotation Sheet */
+      @media print {
+        body {
+          background: white !important;
+          color: black !important;
+          background-image: none !important;
+        }
+        .bg-grid, header, .print-hidden {
+          display: none !important;
+        }
+        .quote-sheet {
+          display: block !important;
+          padding: 0 !important;
+          background: white !important;
+          color: black !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
+        .glass-panel {
+          background: none !important;
+          backdrop-filter: none !important;
+          border: 1px solid #ddd !important;
+          color: black !important;
+        }
+        * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.0",
+    "uuid": "https://aistudiocdn.com/uuid@^13.0.0",
+    "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@2.39.3"
+  }
+}
+</script>
+</head>
+  <body>
+    <div class="bg-grid"></div>
+    <div id="root"></div>
+  </body>
+</html>
